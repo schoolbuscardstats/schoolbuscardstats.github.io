@@ -1,0 +1,39 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Traffic</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,system-ui,Segoe UI,Roboto,sans-serif;background:#f4f5f7;color:#231f20}
+#gate{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px}
+#gate h1{font-size:22px;margin:0}
+#pin{font-size:34px;letter-spacing:.5em;text-align:center;width:200px;padding:12px 8px 12px 20px;border:2px solid #231f20;border-radius:12px;background:#fff}
+#msg{color:#b00020;min-height:20px;font-size:15px}
+#app{display:none;padding:16px;max-width:1000px;margin:0 auto}
+h2{margin:0 0 4px;font-size:22px}.sub{color:#555;font-size:14px;margin-bottom:12px}
+.cards{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}.c{background:#fff;border-radius:12px;padding:12px 16px;min-width:110px}.c b{display:block;font-size:30px}.c span{font-size:13px;color:#555}
+.wrap{overflow-x:auto;background:#fff;border-radius:12px}table{border-collapse:collapse;width:100%;font-size:14px}th,td{padding:9px 10px;text-align:left;border-bottom:1px solid #eee;white-space:nowrap}th{background:#fafafa;font-size:12px;text-transform:uppercase;color:#666}
+button{font:inherit;background:#231f20;color:#fff;border:0;border-radius:10px;padding:9px 14px;margin-bottom:12px}
+</style></head><body>
+<div id="gate"><h1>Enter code</h1><input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" autofocus><div id="msg"></div></div>
+<div id="app"><h2>Visit log</h2><div class="sub">Times in Eastern Time. One row per visit.</div><button id="rf">Refresh</button><div class="cards"><div class="c"><b id="n1">0</b><span>visits</span></div><div class="c"><b id="n2">0</b><span>Image</span></div><div class="c"><b id="n3">0</b><span>PDF</span></div></div>
+<div class="wrap"><table><thead><tr><th>Time (ET)</th><th>Device</th><th>Browser</th><th>Country</th><th>IP</th><th>Downloaded</th></tr></thead><tbody id="tb"></tbody></table></div></div>
+<script>window.API_BASE="https://stats.schoolbuscard.workers.dev";
+var API=window.API_BASE||"";var bad=0,pin=document.getElementById("pin"),msg=document.getElementById("msg"),P="",busy=false;
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function load(){
+ if(busy)return;busy=true;msg.textContent="";
+ fetch(API+"/rows",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({pin:P})}).then(function(r){return r.json().then(function(j){return [r.status,j]})}).then(function(a){
+  busy=false;
+  if(a[0]!==200){P="";pin.value="";if(a[0]===401){bad++;if(bad>=10){pin.disabled=true;msg.textContent="Locked. Reload the page to try again.";return}}msg.textContent=a[0]===429?"Too many tries. Try again later.":"Wrong code";pin.focus();return}
+  show(a[1].rows);
+ }).catch(function(){busy=false;msg.textContent="Network error";pin.value=""});
+}
+function show(rows){
+ document.getElementById("gate").style.display="none";document.getElementById("app").style.display="block";
+ var f=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",second:"2-digit"});
+ var i=0,p=0,h="";
+ rows.forEach(function(r){if(/Image/.test(r.dl))i++;if(/PDF/.test(r.dl))p++;
+  h+="<tr><td>"+esc(f.format(new Date(r.t)))+"</td><td>"+esc(r.device)+"</td><td>"+esc(r.browser)+"</td><td>"+esc(r.country||"-")+"</td><td>"+esc(r.ip)+"</td><td>"+esc(r.dl)+"</td></tr>"});
+ document.getElementById("tb").innerHTML=h||'<tr><td colspan="6">No visits yet</td></tr>';
+ document.getElementById("n1").textContent=rows.length;document.getElementById("n2").textContent=i;document.getElementById("n3").textContent=p;
+}
+pin.addEventListener("input",function(){pin.value=pin.value.replace(/\D/g,"").slice(0,4);if(pin.value.length===4){P=pin.value;pin.blur();load()}});
+document.getElementById("rf").onclick=load;
+</script></body></html>
